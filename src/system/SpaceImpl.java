@@ -312,38 +312,6 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
             }
         }
 
-        // @Override
-        // public void run(){
-        //     List<Task> taskList = new ArrayList<>();
-        //     try{
-        //         while(true){
-        //             Task t = null;
-        //             long startTime = System.nanoTime();
-        //             try{
-        //                 t = SpaceImpl.this.takeReady();
-        //                 taskList.add(t);
-        //                 computer.Execute(t);
-        //             }
-        //             catch (RemoteException e){
-        //                 try{
-        //                     putReady(taskList);
-        //                     //Computer.tasksQ.put(t);
-        //                     computerProxies.remove(computer);
-        //                 }
-        //                 catch(RemoteException ex){
-        //                     ex.printStackTrace();
-        //                 }
-        //                 System.out.println("Computer #" + computerId + " is dead!!!");
-        //                 return;
-        //             }
-        //             // Logger.getLogger( this.getClass().getCanonicalName() )
-        //             //     .log( Level.INFO, "Run time: {0} ms.", ( System.nanoTime() - startTime) / 1000000 );
-
-        //         }
-        //     }
-        //     catch (InterruptedException ignore) {}
-        // }
-
         public void exit() {
             try { computer.exit(); } catch ( RemoteException ignore ) {}
         }
@@ -363,14 +331,9 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
                     Task task = null;
                     try{
                         task = SpaceImpl.this.takeReady();
-                        final long taskStartTime = System.nanoTime();
                         ResultWrapper result = computer.Execute(task);
-                        //System.gc();
-                        final long taskRunTime = ( System.nanoTime() - taskStartTime ) / 1000000;
                         if(result != null)
                             result.process(SpaceImpl.this);
-                        //Logger.getLogger( ComputerImpl.class.getCanonicalName() )
-                        //    .log( Level.INFO, "Worker Proxy Side: Task {0}Task time: {1} ms.", new Object[]{ task, taskRunTime } );
                     }
                     catch(RemoteException ignore){
                         unregister( task, computer, id );

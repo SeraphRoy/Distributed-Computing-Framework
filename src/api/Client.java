@@ -41,8 +41,8 @@ public class Client extends JFrame{
     }
 
     public void run() throws RemoteException{
-        final long startTime = System.nanoTime();
         try{
+            final long startTime = System.nanoTime();
             space.putReady(task);
             Argument temp = space.getResult();
             //System.out.println("yosh " + temp);
