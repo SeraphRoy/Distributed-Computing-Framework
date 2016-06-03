@@ -41,10 +41,12 @@ public class Client extends JFrame{
     }
 
     public void run() throws RemoteException{
+        final long startTime = System.nanoTime();
         try{
-            final long startTime = System.nanoTime();
             space.putReady(task);
             Argument temp = space.getResult();
+            System.out.println("T_1 = " + temp.T_1);
+            System.out.println("T_Inf = " + temp.T_Inf);
             //System.out.println("yosh " + temp);
             view(task.viewResult(temp.getValue()));
             //space.exit();

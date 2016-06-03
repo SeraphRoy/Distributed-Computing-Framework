@@ -37,7 +37,7 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
 
     private Share share = null;
 
-    public SpaceImpl(Share share) throws RemoteException{
+    public SpaceImpl() throws RemoteException{
         readyClosure = new LinkedBlockingDeque<Closure>();
         spaceClosure = new LinkedBlockingQueue<Closure>();
         waitingClosure = new ConcurrentHashMap<>();
@@ -45,8 +45,7 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
         computerResults = new LinkedBlockingQueue<>();
         doneTasks = new HashSet<>();
         spawnResultQ = new LinkedBlockingQueue<>();
-        this.share = share;
-        shareHandler = new ShareHandler(share);
+        shareHandler = new ShareHandler();
         new Thread(shareHandler).start();
         new Thread(new SpawnResultHandler()).start();
         //new Thread(new ComputerResultHandler()).start();
@@ -118,7 +117,7 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
     }
 
     public void register(Computer computer, int numProcessors) throws RemoteException, InterruptedException{
-        computer.setShare(new Share(this.share.getValue()));
+        //computer.setShare(new Share(this.share.getValue()));
         ComputerProxy c = new ComputerProxy(computer, 2 * numProcessors);
         computerProxies.put( computer, c);
         c.startWorkerProxies();
@@ -132,14 +131,17 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
     public Argument getResult() throws RemoteException, InterruptedException{return resultQueue.take();}
 
     public synchronized void updateShare(Share share) throws RemoteException{
-        this.share = share.getBetterOne(this.share);
+	if(this.share == null)
+	    this.share = new Share(share.getValue());
+	else
+	    this.share = share.getBetterOne(this.share);
         System.out.println("The space share is: " + share.getValue());
         computerProxies.keySet().forEach(computer -> {
                 try{
                     computer.updateShare(share);
                 }
-                catch(Exception e){
-                    e.printStackTrace();
+                catch(Exception ignore){
+                    //ignore.printStackTrace();
                 }
             });
     }
@@ -163,8 +165,7 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
             System.setSecurityManager(new SecurityManager());
         try{
             Registry registry = LocateRegistry.createRegistry(Space.PORT);
-            Share share = new Share(Double.MAX_VALUE);
-            SpaceImpl space = new SpaceImpl(share);
+            SpaceImpl space = new SpaceImpl();
             new Thread(space.createExecuter()).start();
             registry.rebind(Space.SERVICE_NAME, space);
             System.out.println("Space start");
@@ -175,12 +176,10 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
     }
 
     public class ShareHandler implements Runnable{
-        private Share share;
+        private Share share = null;
         private AtomicBoolean needToUpdate = new AtomicBoolean(false);
 
-        public ShareHandler(Share share){
-            this.share = share;
-        }
+        public ShareHandler(){}
 
         public synchronized void updateShare(Share share){
             this.share = share;
@@ -190,7 +189,7 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
         public void run(){
             while(true){
                 if(needToUpdate.get()){
-                    if(share.isBetterThan(SpaceImpl.this.share)){
+                    if(SpaceImpl.this.share == null || share.isBetterThan(SpaceImpl.this.share)){
                         try{
                             SpaceImpl.this.updateShare(share);
                         }
@@ -312,6 +311,38 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
             }
         }
 
+        // @Override
+        // public void run(){
+        //     List<Task> taskList = new ArrayList<>();
+        //     try{
+        //         while(true){
+        //             Task t = null;
+        //             long startTime = System.nanoTime();
+        //             try{
+        //                 t = SpaceImpl.this.takeReady();
+        //                 taskList.add(t);
+        //                 computer.Execute(t);
+        //             }
+        //             catch (RemoteException e){
+        //                 try{
+        //                     putReady(taskList);
+        //                     //Computer.tasksQ.put(t);
+        //                     computerProxies.remove(computer);
+        //                 }
+        //                 catch(RemoteException ex){
+        //                     ex.printStackTrace();
+        //                 }
+        //                 System.out.println("Computer #" + computerId + " is dead!!!");
+        //                 return;
+        //             }
+        //             // Logger.getLogger( this.getClass().getCanonicalName() )
+        //             //     .log( Level.INFO, "Run time: {0} ms.", ( System.nanoTime() - startTime) / 1000000 );
+
+        //         }
+        //     }
+        //     catch (InterruptedException ignore) {}
+        // }
+
         public void exit() {
             try { computer.exit(); } catch ( RemoteException ignore ) {}
         }
@@ -331,13 +362,18 @@ public class SpaceImpl extends UnicastRemoteObject implements Space{
                     Task task = null;
                     try{
                         task = SpaceImpl.this.takeReady();
+                        final long taskStartTime = System.nanoTime();
                         ResultWrapper result = computer.Execute(task);
+                        //System.gc();
+                        final long taskRunTime = ( System.nanoTime() - taskStartTime ) / 1000000;
                         if(result != null)
                             result.process(SpaceImpl.this);
+                        //Logger.getLogger( ComputerImpl.class.getCanonicalName() )
+                        //    .log( Level.INFO, "Worker Proxy Side: Task {0}Task time: {1} ms.", new Object[]{ task, taskRunTime } );
                     }
                     catch(RemoteException ignore){
                         unregister( task, computer, id );
-                        ignore.printStackTrace();
+                        //ignore.printStackTrace();
                         return;
                     }
                     catch (InterruptedException ex){

@@ -41,8 +41,15 @@ public class ComputerImpl extends UnicastRemoteObject implements Computer{
         ResultWrapper result = null;
         try{
             task.computer = this;
-            task.share = new Share(share.getValue());
+	    if(share != null)
+		task.share = new Share(share.getValue());
+	    else
+		share = new Share(task.share.getValue());
+            final long startTime = System.nanoTime();
             result = task.execute(true);
+            final long runTime = ( System.nanoTime() - startTime ) / 1000000; // milliseconds
+            //Logger.getLogger( ComputerImpl.class.getCanonicalName() )
+            //      .log( Level.INFO, "Computer Side: Task {0}Task time: {1} ms.", new Object[]{ task, runTime } );
         }
         catch(Exception e){
             e.printStackTrace();
@@ -63,7 +70,7 @@ public class ComputerImpl extends UnicastRemoteObject implements Computer{
     public static void main(String[] args) throws RemoteException, NotBoundException, MalformedURLException{
         SpaceImpl.MULTICORE = true;
         SpaceImpl.preFetchNum = 10;
-        final String domainName = "localhost";
+        final String domainName = args[0];
         System.setSecurityManager( new SecurityManager() );
         final String url = "rmi://" + domainName + ":" + Space.PORT + "/" + Space.SERVICE_NAME;
         final Space space = (Space) Naming.lookup(url);
